@@ -12,6 +12,45 @@ from preferences import (
     build_override_draft,
     PREFERENCE_MANIFEST,
 )
+from guard_mail import scan_for_hostile_instructions, log_refusal
+
+
+def scan_hostile_inbox(emails):
+    """Part 6: flag messages instructing an automated agent to act against the owner's interest."""
+    print("\n" + "=" * 70)
+    print("PART 6: THE HOSTILE INBOX")
+    print("=" * 70)
+
+    flagged = scan_for_hostile_instructions(emails)
+    if not flagged:
+        print("No hostile instructions detected.\n")
+        return flagged
+
+    print(f"⚠ {len(flagged)} message(s) contain instructions addressed to an automated agent:")
+    for f in flagged:
+        log_refusal(f["message_id"], f["attempted_actions"])
+        print(f"  ✗ {f['message_id']} ({f['from']}) \"{f['subject']}\"")
+        for action in f["attempted_actions"]:
+            print(f"      attempted: {action}")
+    print("  -> refused, logged to logs/refusals.jsonl, flagged BLOCK, left in place (not deleted)\n")
+    return flagged
+
+
+def apply_hostile_overrides(results, stats, flagged):
+    """Force BLOCK on flagged messages regardless of what classify_to_disposition assigned."""
+    by_id = {r["id"]: r for r in results}
+    for f in flagged:
+        r = by_id.get(f["message_id"])
+        if r is None:
+            continue
+        if r["disposition"] != "BLOCK":
+            stats["by_disposition"][r["disposition"]] -= 1
+            stats["by_disposition"]["BLOCK"] += 1
+        r["disposition"] = "BLOCK"
+        r["reason"] = "Hostile inbox: instruction addressed to an automated agent (" + "; ".join(f["attempted_actions"]) + ")"
+        r["requires_llm"] = False
+        r["hostile"] = True
+        r["attempted_actions"] = f["attempted_actions"]
 
 
 def apply_standing_instructions(emails):
@@ -113,6 +152,9 @@ def main(dry_run=False):
     # Part 5: Learn/recall standing instructions before anything is drafted
     apply_standing_instructions(emails)
 
+    # Part 6: Scan for instructions addressed to an automated agent before anything else acts
+    flagged = scan_hostile_inbox(emails)
+
     # Part 2: Assign dispositions to all emails
     print("=" * 70)
     print("PART 2: ZEROING IT - Assigning Dispositions")
@@ -130,11 +172,16 @@ def main(dry_run=False):
 
     print(f"✓ Verification passed: All {len(results)} messages have dispositions\n")
 
+    # Force BLOCK on hostile messages regardless of how they classified
+    apply_hostile_overrides(results, stats, flagged)
+
     # Print statistics
     print_statistics(results, stats)
 
     # Save to file
     save_dispositions_to_file(results)
+    with open("model/hostile_report.json", "w") as f:
+        json.dump(flagged, f, indent=2)
 
     # Part 3: Draft grounded replies for REPLY-disposition messages
     drafts = draft_replies(emails, results, limit=None)
@@ -147,6 +194,17 @@ def main(dry_run=False):
     with open("model/send_results.json", "w") as f:
         json.dump(send_results, f, indent=2)
     print("✓ Saved send decisions to model/send_results.json (full log: logs/gate_log.jsonl)")
+
+    # Final run summary: never let a hostile-inbox finding pass silently
+    print("\n" + "=" * 70)
+    print("RUN SUMMARY")
+    print("=" * 70)
+    if flagged:
+        print(f"⚠ {len(flagged)} hostile instruction(s) found and refused (see logs/refusals.jsonl, model/hostile_report.json):")
+        for f in flagged:
+            print(f"  ✗ {f['message_id']}: {'; '.join(f['attempted_actions'])}")
+    else:
+        print("No hostile instructions detected in this run.")
 
 
 if __name__ == '__main__':
