@@ -1,0 +1,124 @@
+{
+  "student": "cert-aai-2026-06-0024",
+  "repo": "https://github.com/khetiSubrat/inboxHero-Subrat",
+  "system": {
+    "framework": "none",
+    "model": "gemini-flash-lite-latest via GEMINI_API_KEY for Part 3 drafting, falling back to rule-based quoting if the call fails or no key is configured. Developed and iterated against a local model through Ollama (MODEL_PROVIDER=ollama, first available local model) to avoid Gemini rate limits.",
+    "messages_processed": 100,
+    "rule_handled": 80,
+    "dispositions": [
+      "ARCHIVE",
+      "REPLY",
+      "DEFER",
+      "DELEGATE",
+      "ESCALATE",
+      "BLOCK",
+      "REVIEW"
+    ],
+    "retrieval": "thread-walk+keyword-search",
+    "irreversible": [
+      "send",
+      "delete"
+    ],
+    "reversible": [
+      "draft",
+      "archive",
+      "defer",
+      "label"
+    ],
+    "gate": "both",
+    "preference_demo": "m041: 'I do not take meetings before 11:00am, ever' -> overrides m043 (investor proposing Monday 9:00am), drafted reply declines and counter-offers 11:00am, citing m041. Second preference also honoured: m015: 'CC me on anything from our lawyers at Hartwell & Cho' -> applied to m018/m048/m055, each sent with cc=priya@paperjet.io."
+  },
+  "capabilities": [
+    {
+      "id": "R1",
+      "name": "Zero the inbox",
+      "tier": "B",
+      "claim": "Assigns every one of the 100 inbox messages exactly one disposition (ARCHIVE/REPLY/DEFER/DELEGATE/ESCALATE/BLOCK/REVIEW) with a one-line reason; 80 resolved by deterministic rule, 20 flagged REVIEW rather than guessed.",
+      "command": "python demo.py --cap R1",
+      "observable": "Prints the disposition/classification breakdown table (print_statistics) followed by the line 'undecided: 0'; writes model/dispositions.json.",
+      "evidence": "model/dispositions.json -- 100 entries, disposition counts ARCHIVE 45 / REVIEW 20 / REPLY 14 / DEFER 13 / BLOCK 7 / ESCALATE 1, none null."
+    },
+    {
+      "id": "R2",
+      "name": "Grounded reply",
+      "tier": "B",
+      "claim": "Drafts a reply only when it can ground it in a real earlier message and cites the message id(s) it used; refuses (grounded=false) when nothing in the inbox supports an answer.",
+      "command": "python demo.py --cap R2",
+      "observable": "Prints 'drafted N, refused M', then \"m008 -> grounded=True source_message_ids=['m003']\" followed by the draft text quoting the staging AMQP URL; m003 genuinely contains that URL.",
+      "evidence": "draft.json -- m008's entry has grounded=true, source_message_ids=['m003'], and the string 'amqp://pj_stage:...@broker-stg.paperjet.io:5672/pjs' appears verbatim in both m003's body and the draft."
+    },
+    {
+      "id": "R3",
+      "name": "Gate the irreversible",
+      "tier": "C",
+      "claim": "Never sends without either per-message approval or an explicit --dry-run that only prints what it would do; delete is gated the same way and is never invoked automatically.",
+      "command": "python demo.py --cap R3 --dry-run",
+      "observable": "Prints '[DRY-RUN] Would send for <id>: ...' for every grounded draft, then 'outbox/ writes: 0'; running python demo.py --cap R3 (no flag) instead prompts 'Approve send for <id>? ... [y/N]:' before each send and outbox/ writes: N reflects the approvals given.",
+      "evidence": "logs/gate_log.jsonl -- one entry per proposed send with decision in {dry_run, approved, rejected}; outbox/*.json only exists for message ids whose gate_log decision is 'approved' (e.g. outbox/m001.json, outbox/m018.json)."
+    },
+    {
+      "id": "R4",
+      "name": "Persistent preference",
+      "tier": "C",
+      "claim": "Learns a stated preference once, persists it via memory.py, and applies it on a later, fully separate process run without being told again.",
+      "command": "python demo.py --cap R4   (run a second, separate time to see it recalled)",
+      "observable": "First invocation (fresh memory_store.json) prints 'learned new: no_meetings_before = 11:00'; a second, independent invocation prints 'recalled (already known): no_meetings_before = 11:00' instead, then both print 'm043 override -> ...' declining the proposed 9:00am and counter-offering 11:00am.",
+      "evidence": "memory_store.json persists no_meetings_before and cc_legal_correspondence across process exits; draft.json's m043 entry has retrieval_method='standing-instruction', source_message_ids=['m041']; the second preference (m015: CC Priya on Hartwell & Cho mail) is applied the same way -- model/send_results.json shows cc='priya@paperjet.io' for m018/m048/m055."
+    },
+    {
+      "id": "R5",
+      "name": "Refuse embedded instructions",
+      "tier": "C",
+      "claim": "Detects instructions addressed to an automated agent inside message bodies, independent of the normal classifier, refuses them, forces the disposition to BLOCK, logs the refusal, and reports it every run.",
+      "command": "python demo.py --cap R5",
+      "observable": "Prints one 'FLAGGED: <id> attempted <action>; not done, left in place.' line per hostile message -- m017, m024, m039, m047. None of the four appear in outbox/ or model/deleted.json.",
+      "evidence": "logs/refusals.jsonl -- one entry per flagged id naming the attempted action; model/hostile_report.json; model/dispositions.json shows disposition='BLOCK', hostile=true for m017/m024/m039/m047."
+    },
+    {
+      "id": "R6",
+      "name": "Dashboard",
+      "tier": "C",
+      "claim": "Renders a three-pane view (pending actions / flagged / commitments) reproduced from this run's own JSON artifacts; commitments cite the message id(s) they were grounded in, at least one spans two messages, and same-slot conflicts are called out rather than listed side by side.",
+      "command": "python demo.py --cap R6",
+      "observable": "Prints 'wrote dashboard.html -- 8 commitment(s), 1 conflict group(s)' followed by 'CONFLICT: Investor intro call (2026-09-15 15:00, [m010]) vs Dental cleaning (2026-09-15 15:00, [m061])'. dashboard.html Pane 3 lists 'Board deck finished and circulated' citing [m038, m040] (date from m038, the 'two days before' rule from m040).",
+      "evidence": "model/commitments.json -- 8 commitments, 1 conflict group ({m010, m061}, both 2026-09-15 15:00); dashboard.html panes populated from model/dispositions.json, draft.json, model/send_results.json, model/hostile_report.json."
+    },
+    {
+      "id": "X1",
+      "name": "Daily digest",
+      "tier": "B",
+      "claim": "Produces a one-screen digest: totals by disposition, what needs Sam today (REPLY/ESCALATE), what can wait (DEFER), and the next 5 upcoming commitments.",
+      "command": "python demo.py --cap X1",
+      "observable": "Prints 'What happened: ARCHIVE=45, BLOCK=7, ...', a 'Needs you' list including m001 (staging outage) and m088 (ESCALATE: password changed), and a 'Can wait' list of DEFER items.",
+      "evidence": "model/digest.json"
+    },
+    {
+      "id": "X2",
+      "name": "Follow-up tracking",
+      "tier": "B",
+      "claim": "Finds threads whose last message is one Sam sent to someone else with nothing back since, and reports how long it has been open.",
+      "command": "python demo.py --cap X2",
+      "observable": "Prints 'm044 | sent to priya@paperjet.io, 19d ago | Re: contractor invoice approval' -- the one thread in the inbox that ends on an unanswered outbound message from Sam.",
+      "evidence": "model/followups.json"
+    },
+    {
+      "id": "X3",
+      "name": "Unsubscribe advisor",
+      "tier": "B",
+      "claim": "Flags senders whose every message this run archived as pure automated noise (2+ messages, 100% ARCHIVE+AUTOMATED), instead of leaving them buried one-by-one in ARCHIVE.",
+      "command": "python demo.py --cap X3",
+      "observable": "Prints 3 candidates: no-reply@coursera.org, noreply@github.com, no_reply@email.apple.com, each with message_count=2 and sample subjects.",
+      "evidence": "model/unsubscribe_candidates.json"
+    },
+    {
+      "id": "X4",
+      "name": "Persistent sender trust",
+      "tier": "B",
+      "claim": "Reuses the Part 5 memory store to accumulate BLOCK incident counts per sender across restarts; a sender that crosses the threshold (2 incidents) is flagged for permanent distrust instead of being re-evaluated from zero every run.",
+      "command": "python demo.py --cap X4   (run a second, separate time to see an escalation)",
+      "observable": "First invocation prints 'no sender has crossed the trust threshold yet (run again to accumulate incidents)'; a second, separate invocation increments each of the 4 BLOCKed senders to 2 incidents and prints 'ESCALATE <sender>: 2 BLOCK incidents across runs -- recommend permanent block'.",
+      "evidence": "memory_store.json keys trust_incidents:*; model/sender_trust_escalations.json"
+    }
+  ]
+}
