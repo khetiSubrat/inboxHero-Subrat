@@ -52,7 +52,7 @@ def send_replies(emails, drafts, dry_run):
             continue
         message_id = d["message_id"]
         to = by_id[message_id]["from"]
-        proposed = f"send to {to} citing {d['source_message_ids']}: {d['draft'][:80]}..."
+        proposed = f"send to {to} citing {d['source_message_ids']}: {d['draft'][:200]}..."
 
         decision, outbox_path = gate.run(
             "send",
