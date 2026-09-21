@@ -7,8 +7,8 @@ field for every R1-R6 / X1-X4 entry actually runs.
     python demo.py --all --dry-run      # every capability, in manifest order
 
 Each capability writes the same JSON artifact main.py's full run writes
-(model/dispositions.json, draft.json, model/commitments.json, ...) and also
-appends a tagged event to trace.jsonl, so a capability's evidence can be
+(model/dispositions.json, model/draft.json, model/commitments.json, ...) and also
+appends a tagged event to model/trace.jsonl, so a capability's evidence can be
 checked in isolation. R4 (persistent preference) and X4 (persistent sender
 trust) are the two capabilities that are meant to be run more than once --
 their claim is specifically about what happens on a second, separate process.
@@ -87,7 +87,7 @@ def cap_r2(emails, dry_run):
             "grounded": draft["grounded"],
             "source_message_ids": draft.get("source_message_ids"),
         })
-    with open("draft.json", "w") as f:
+    with open("model/draft.json", "w") as f:
         json.dump(drafts, f, indent=2)
     print(f"drafted {sum(d['grounded'] for d in drafts)}, refused {sum(not d['grounded'] for d in drafts)}")
     m008 = next((d for d in drafts if d["message_id"] == "m008"), None)
@@ -167,11 +167,11 @@ def cap_r6(emails, dry_run):
         json.dump({"commitments": commitments, "conflicts": conflicts}, f, indent=2)
 
     dashboard = build_dashboard(emails)
-    with open("dashboard.html", "w") as f:
+    with open("model/dashboard.html", "w") as f:
         f.write(render_html(dashboard))
 
     trace_event("R6", "dashboard", {"commitments": len(commitments), "conflicts": len(conflicts)})
-    print(f"wrote dashboard.html -- {len(commitments)} commitment(s), {len(conflicts)} conflict group(s)")
+    print(f"wrote model/dashboard.html -- {len(commitments)} commitment(s), {len(conflicts)} conflict group(s)")
     for group in conflicts:
         print("  CONFLICT: " + " vs ".join(f"{c['title']} ({c['date']} {c['time']}, {c['source_message_ids']})" for c in group))
     return dashboard

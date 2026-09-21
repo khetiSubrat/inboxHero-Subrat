@@ -7,13 +7,15 @@ without re-running the whole pipeline.
 """
 
 import json
+import os
 from datetime import datetime, timezone
 
-TRACE_PATH = "trace.jsonl"
+TRACE_PATH = "model/trace.jsonl"
 
 
 def trace_event(cap, event, data):
     entry = {"timestamp": datetime.now(timezone.utc).isoformat(), "cap": cap, "event": event}
     entry.update(data)
+    os.makedirs(os.path.dirname(TRACE_PATH), exist_ok=True)
     with open(TRACE_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")

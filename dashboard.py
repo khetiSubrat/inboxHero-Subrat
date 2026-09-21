@@ -2,7 +2,7 @@
 Part 7: The Dashboard.
 
 Renders one three-pane view from a completed run's own JSON artifacts
-(model/dispositions.json, draft.json, model/send_results.json,
+(model/dispositions.json, model/draft.json, model/send_results.json,
 model/hostile_report.json, model/commitments.json). Nothing here is
 hand-assembled -- rerunning main.py regenerates every input file, and
 this module only reads and formats them.
@@ -23,7 +23,7 @@ from gate import ACTION_MANIFEST
 
 INBOX_PATH = "Docs/inbox.json"
 DISPOSITIONS_PATH = "model/dispositions.json"
-DRAFT_PATH = "draft.json"
+DRAFT_PATH = "model/draft.json"
 SEND_RESULTS_PATH = "model/send_results.json"
 HOSTILE_REPORT_PATH = "model/hostile_report.json"
 COMMITMENTS_PATH = "model/commitments.json"
@@ -199,6 +199,6 @@ def render_html(data):
 
 if __name__ == "__main__":
     html = render_html(build_dashboard())
-    with open("dashboard.html", "w") as f:
+    with open("model/dashboard.html", "w") as f:
         f.write(html)
-    print("✓ Saved dashboard to dashboard.html")
+    print("✓ Saved dashboard to model/dashboard.html")

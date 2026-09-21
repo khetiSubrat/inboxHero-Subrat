@@ -1,5 +1,7 @@
 # inboxHero-Subrat
 A sample Agentic AI POC.
+https://github.com/khetiSubrat/inboxHero-Subrat
+
 
 ## Reflection
 

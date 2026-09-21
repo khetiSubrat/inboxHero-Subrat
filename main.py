@@ -238,9 +238,9 @@ def main(dry_run=False):
 
     # Part 3: Draft grounded replies for REPLY-disposition messages
     drafts = draft_replies(emails, results, limit=None)
-    with open("draft.json", "w") as f:
+    with open("model/draft.json", "w") as f:
         json.dump(drafts, f, indent=2)
-    print("✓ Saved drafts to draft.json")
+    print("✓ Saved drafts to model/draft.json")
 
     # Part 4: Gate every send behind approval or --dry-run
     send_results = send_replies(emails, drafts, dry_run=dry_run)
@@ -261,9 +261,9 @@ def main(dry_run=False):
 
     # Part 7: Render the three-pane dashboard from this run's own JSON artifacts
     dashboard = build_dashboard(emails)
-    with open("dashboard.html", "w") as f:
+    with open("model/dashboard.html", "w") as f:
         f.write(render_html(dashboard))
-    print("✓ Saved dashboard to dashboard.html")
+    print("✓ Saved dashboard to model/dashboard.html")
 
     # Part 8: Capabilities beyond the required parts
     run_extra_capabilities(emails, results, commitments)

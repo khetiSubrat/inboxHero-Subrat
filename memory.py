@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any
 
 
-MEMORY_FILE = Path(__file__).parent / "memory_store.json"
+MEMORY_FILE = Path(__file__).parent / "model" / "memory_store.json"
 
 
 class MemoryStore:
@@ -36,6 +36,7 @@ class MemoryStore:
     def _save_memory(self) -> None:
         """Save current memory to disk."""
         try:
+            MEMORY_FILE.parent.mkdir(exist_ok=True)
             with open(MEMORY_FILE, "w") as f:
                 json.dump(self.data, f, indent=2)
         except IOError as e:
