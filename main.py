@@ -15,6 +15,45 @@ from preferences import (
 from guard_mail import scan_for_hostile_instructions, log_refusal
 from commitments import extract_commitments, find_conflicts
 from dashboard import build_dashboard, render_html
+from digest import build_digest, print_digest
+from followups import find_open_followups
+from noise_advisor import find_unsubscribe_candidates
+from sender_trust import update_sender_trust
+
+
+def run_extra_capabilities(emails, results, commitments):
+    """Part 8: capabilities beyond the required parts, built on the same run outputs."""
+    print("\n" + "=" * 70)
+    print("PART 8: WHAT ELSE DOES IT DO?")
+    print("=" * 70)
+
+    digest = build_digest(results, commitments)
+    with open("model/digest.json", "w") as f:
+        json.dump(digest, f, indent=2)
+    print("\n-- Daily digest --")
+    print_digest(digest)
+
+    followups = find_open_followups(emails)
+    with open("model/followups.json", "w") as f:
+        json.dump(followups, f, indent=2)
+    print(f"\n-- Follow-ups awaiting a reply ({len(followups)}) --")
+    for f in followups:
+        print(f"  • {f['message_id']:5s} | sent to {f['sent_to']}, {f['days_open']}d ago | {f['subject']}")
+
+    unsubscribe_candidates = find_unsubscribe_candidates(emails, results)
+    with open("model/unsubscribe_candidates.json", "w") as f:
+        json.dump(unsubscribe_candidates, f, indent=2)
+    print(f"\n-- Unsubscribe candidates ({len(unsubscribe_candidates)}) --")
+    for c in unsubscribe_candidates:
+        print(f"  • {c['sender']} ({c['message_count']} messages, all noise)")
+
+    escalations = update_sender_trust(results)
+    with open("model/sender_trust_escalations.json", "w") as f:
+        json.dump(escalations, f, indent=2)
+    print(f"\n-- Sender trust escalations ({len(escalations)}) --")
+    for e in escalations:
+        print(f"  ⚠ {e['sender']}: {e['total_incidents']} BLOCK incidents across runs -- recommend permanent block")
+    print()
 
 
 def scan_hostile_inbox(emails):
@@ -225,6 +264,9 @@ def main(dry_run=False):
     with open("dashboard.html", "w") as f:
         f.write(render_html(dashboard))
     print("✓ Saved dashboard to dashboard.html")
+
+    # Part 8: Capabilities beyond the required parts
+    run_extra_capabilities(emails, results, commitments)
 
 
 if __name__ == '__main__':
