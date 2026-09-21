@@ -182,6 +182,8 @@ def classify_to_disposition(classification, email):
             return "REPLY", "Actionable: investor call scheduling (Sep 15 at 3pm proposed)", True
         if "t-deck" in thread_id:
             return "DEFER", "Actionable: board deck deadline (Sep 16 - 2 days before review)", True
+        if "t-legal" in thread_id:
+            return "REPLY", "Actionable: legal correspondence from Hartwell & Cho needs signature/response", True
         
         return "REPLY", "Actionable: work thread requires engagement", True
     

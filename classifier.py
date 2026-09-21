@@ -160,6 +160,9 @@ def classify_email(email):
         "t-board",
         "t-invest",
         "t-deck",
+        "t-legal",
+        "t-legal2",
+        "t-legal3",
     }
 
     if thread_id in actionable_threads:

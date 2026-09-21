@@ -5,7 +5,7 @@ OUTBOX_DIR = "outbox"
 DELETED_LOG = "model/deleted.json"
 
 
-def send_message(message_id, to, body, source_message_ids):
+def send_message(message_id, to, body, source_message_ids, cc=None):
     """The only place a 'send' effect happens: one file per message, in outbox/."""
     os.makedirs(OUTBOX_DIR, exist_ok=True)
     path = os.path.join(OUTBOX_DIR, f"{message_id}.json")
@@ -14,6 +14,7 @@ def send_message(message_id, to, body, source_message_ids):
             {
                 "message_id": message_id,
                 "to": to,
+                "cc": cc,
                 "body": body,
                 "source_message_ids": source_message_ids,
             },
