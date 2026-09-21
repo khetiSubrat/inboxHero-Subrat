@@ -13,6 +13,8 @@ from preferences import (
     PREFERENCE_MANIFEST,
 )
 from guard_mail import scan_for_hostile_instructions, log_refusal
+from commitments import extract_commitments, find_conflicts
+from dashboard import build_dashboard, render_html
 
 
 def scan_hostile_inbox(emails):
@@ -183,6 +185,18 @@ def main(dry_run=False):
     with open("model/hostile_report.json", "w") as f:
         json.dump(flagged, f, indent=2)
 
+    # Part 7 support: extract commitments, citing message ids the same way Part 3 verifies drafts
+    commitments = extract_commitments(emails)
+    by_id = {e["id"]: e for e in emails}
+    for c in commitments:
+        missing = [mid for mid in c["source_message_ids"] if mid not in by_id]
+        if missing:
+            raise ValueError(f"Commitment '{c['id']}' cited unknown message ids: {missing}")
+    conflicts = find_conflicts(commitments)
+    with open("model/commitments.json", "w") as f:
+        json.dump({"commitments": commitments, "conflicts": conflicts}, f, indent=2)
+    print(f"✓ Extracted {len(commitments)} commitment(s), {len(conflicts)} conflict(s) -> model/commitments.json\n")
+
     # Part 3: Draft grounded replies for REPLY-disposition messages
     drafts = draft_replies(emails, results, limit=None)
     with open("draft.json", "w") as f:
@@ -205,6 +219,12 @@ def main(dry_run=False):
             print(f"  ✗ {f['message_id']}: {'; '.join(f['attempted_actions'])}")
     else:
         print("No hostile instructions detected in this run.")
+
+    # Part 7: Render the three-pane dashboard from this run's own JSON artifacts
+    dashboard = build_dashboard(emails)
+    with open("dashboard.html", "w") as f:
+        f.write(render_html(dashboard))
+    print("✓ Saved dashboard to dashboard.html")
 
 
 if __name__ == '__main__':
