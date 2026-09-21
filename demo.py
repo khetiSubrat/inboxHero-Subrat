@@ -1,6 +1,6 @@
 """
 demo.py -- capability-scoped entry point that capabilities.json's "command"
-field for every R1-R6 / X1-X4 entry actually runs.
+field for every R1-R6 / X1-X5 entry actually runs.
 
     python demo.py --cap R1
     python demo.py --cap R3 --dry-run
@@ -37,6 +37,7 @@ from digest import build_digest, print_digest
 from followups import find_open_followups
 from noise_advisor import find_unsubscribe_candidates
 from sender_trust import update_sender_trust
+from sender_lookup import find_unread_from_sender
 from trace import trace_event
 
 INBOX_PATH = "Docs/inbox.json"
@@ -223,10 +224,24 @@ def cap_x4(emails, dry_run):
     return escalations
 
 
+def cap_x5(emails, dry_run):
+    """Part 8 Tier A: unread mail from one sender -- a single lookup, single output."""
+    sender = "priya@paperjet.io"
+    matches = find_unread_from_sender(emails, sender)
+    output = {"sender": sender, "count": len(matches), "messages": matches}
+    with open("model/unread_from_sender.json", "w") as f:
+        json.dump(output, f, indent=2)
+    print(f"{sender}: {len(matches)} unread message(s)")
+    for m in matches:
+        print(f"  {m['id']} | {m['timestamp']} | {m['subject']}")
+    trace_event("X5", "sender_lookup", {"sender": sender, "count": len(matches)})
+    return output
+
+
 CAPS = {
     "R1": cap_r1, "R2": cap_r2, "R3": cap_r3, "R4": cap_r4,
     "R5": cap_r5, "R6": cap_r6,
-    "X1": cap_x1, "X2": cap_x2, "X3": cap_x3, "X4": cap_x4,
+    "X1": cap_x1, "X2": cap_x2, "X3": cap_x3, "X4": cap_x4, "X5": cap_x5,
 }
 
 
@@ -238,7 +253,7 @@ def main():
     args = parser.parse_args()
 
     if not args.cap and not args.all:
-        parser.error("pass --cap R1..R6/X1..X4, or --all")
+        parser.error("pass --cap R1..R6/X1..X5, or --all")
 
     os.makedirs("model", exist_ok=True)
     emails = load_emails()

@@ -74,6 +74,7 @@ file per part under `model/`.
 | X2 | Follow-up tracking | B | unanswered sent mail, with days-open |
 | X3 | Unsubscribe advisor | B | recurring 100%-noise senders surfaced as a group |
 | X4 | Persistent sender trust | B | BLOCK incidents accumulate across restarts, then escalate |
+| X5 | Sender lookup | A | one sender, one unread-mail lookup, one JSON output |
 
 The exact command, observable outcome and evidence file for each is in
 `capabilities.json` -- that is what a marking script reads; this file is for

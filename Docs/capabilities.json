@@ -119,6 +119,15 @@
       "command": "python demo.py --cap X4   (run a second, separate time to see an escalation)",
       "observable": "First invocation prints 'no sender has crossed the trust threshold yet (run again to accumulate incidents)'; a second, separate invocation increments each of the 4 BLOCKed senders to 2 incidents and prints 'ESCALATE <sender>: 2 BLOCK incidents across runs -- recommend permanent block'.",
       "evidence": "model/memory_store.json keys trust_incidents:*; model/sender_trust_escalations.json"
+    },
+    {
+      "id": "X5",
+      "name": "Sender lookup",
+      "tier": "A",
+      "claim": "Lists every unread message from one given sender -- a single lookup, single output, with no disposition, drafting, or persisted state involved.",
+      "command": "python demo.py --cap X5",
+      "observable": "Prints 'priya@paperjet.io: 6 unread message(s)' followed by one line per message (id, timestamp, subject) -- m015, m026, m030, m040, m036, m012.",
+      "evidence": "model/unread_from_sender.json"
     }
   ]
 }
