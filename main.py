@@ -1,6 +1,9 @@
 import json
+import sys
 from disposition import assign_dispositions, print_statistics, save_dispositions_to_file
 from reply_agent import ReplyAgent
+from gate import ActionGate
+from outbox import send_message
 
 
 def draft_replies(emails, results, limit=None):
@@ -34,7 +37,35 @@ def draft_replies(emails, results, limit=None):
     return drafts
 
 
-def main():
+def send_replies(emails, drafts, dry_run):
+    """Part 4: gate every send (irreversible) behind approval or --dry-run."""
+    print("\n" + "=" * 70)
+    print("PART 4: THE THINGS YOU CANNOT UNDO - Gated Sending")
+    print("=" * 70)
+
+    by_id = {e["id"]: e for e in emails}
+    gate = ActionGate(dry_run=dry_run)
+    results = []
+
+    for d in drafts:
+        if not d["grounded"]:
+            continue
+        message_id = d["message_id"]
+        to = by_id[message_id]["from"]
+        proposed = f"send to {to} citing {d['source_message_ids']}: {d['draft'][:80]}..."
+
+        decision, outbox_path = gate.run(
+            "send",
+            message_id,
+            proposed,
+            execute_fn=lambda d=d, to=to: send_message(d["message_id"], to, d["draft"], d["source_message_ids"]),
+        )
+        results.append({"message_id": message_id, "decision": decision, "outbox_path": outbox_path})
+
+    return results
+
+
+def main(dry_run=False):
     # Load inbox
     print("Loading emails from Docs/inbox.json...")
     with open('Docs/inbox.json', 'r') as f:
@@ -70,10 +101,17 @@ def main():
         json.dump(drafts, f, indent=2)
     print("✓ Saved drafts to draft.json")
 
+    # Part 4: Gate every send behind approval or --dry-run
+    send_results = send_replies(emails, drafts, dry_run=dry_run)
+    with open("model/send_results.json", "w") as f:
+        json.dump(send_results, f, indent=2)
+    print("✓ Saved send decisions to model/send_results.json (full log: logs/gate_log.jsonl)")
+
 
 if __name__ == '__main__':
+    dry_run = "--dry-run" in sys.argv
     try:
-        main()
+        main(dry_run=dry_run)
     except ValueError as e:
         print(f"Configuration Error: {e}")
     except RuntimeError as e:
