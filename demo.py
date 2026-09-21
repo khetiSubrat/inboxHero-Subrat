@@ -8,7 +8,7 @@ field for every R1-R6 / X1-X4 entry actually runs.
 
 Each capability writes the same JSON artifact main.py's full run writes
 (model/dispositions.json, model/draft.json, model/commitments.json, ...) and also
-appends a tagged event to model/trace.jsonl, so a capability's evidence can be
+appends a tagged event to trace.jsonl, so a capability's evidence can be
 checked in isolation. R4 (persistent preference) and X4 (persistent sender
 trust) are the two capabilities that are meant to be run more than once --
 their claim is specifically about what happens on a second, separate process.
@@ -16,6 +16,7 @@ their claim is specifically about what happens on a second, separate process.
 
 import argparse
 import json
+import os
 
 from disposition import assign_dispositions, print_statistics, save_dispositions_to_file
 from reply_agent import ReplyAgent
@@ -90,10 +91,10 @@ def cap_r2(emails, dry_run):
     with open("model/draft.json", "w") as f:
         json.dump(drafts, f, indent=2)
     print(f"drafted {sum(d['grounded'] for d in drafts)}, refused {sum(not d['grounded'] for d in drafts)}")
-    m008 = next((d for d in drafts if d["message_id"] == "m008"), None)
-    if m008:
-        print(f"m008 -> grounded={m008['grounded']} source_message_ids={m008['source_message_ids']}")
-        print(f"draft: {m008['draft']}")
+    m001 = next((d for d in drafts if d["message_id"] == "m001"), None)
+    if m001:
+        print(f"m001 -> grounded={m001['grounded']} source_message_ids={m001['source_message_ids']}")
+        print(f"draft: {m001['draft']}")
     return drafts
 
 
@@ -239,6 +240,7 @@ def main():
     if not args.cap and not args.all:
         parser.error("pass --cap R1..R6/X1..X4, or --all")
 
+    os.makedirs("model", exist_ok=True)
     emails = load_emails()
     for cap in (list(CAPS) if args.all else [args.cap]):
         print(f"\n=== {cap}: {CAPS[cap].__doc__ or cap} ===")

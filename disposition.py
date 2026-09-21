@@ -10,22 +10,23 @@ DEFER       : Needs action but can be scheduled for later. Blocking deadline.
 DELEGATE    : Pass to someone else. Not Sam's responsibility or Sam needs to forward.
 ESCALATE    : Needs immediate attention. High priority or time-sensitive.
 BLOCK       : Security threat or malicious. Do not engage. Flag for review.
-REVIEW      : Ambiguous or unclear. Requires human/LLM judgment to determine action.
+REVIEW      : Ambiguous or unclear. Hold for human review; no automatic action is taken.
 
 Rules-Based Disposition Assignment:
 -----------------------------------
 Messages are deterministically assigned dispositions through rules based on 
-classification category. Only REVIEW category may require LLM for final disposition.
+classification category. Only REVIEW category is held back from automatic action.
 
 Statistics tracked:
 - Total messages processed
-- Messages assigned by rule (no LLM needed)
-- Messages requiring LLM (REVIEW category)
+- Messages assigned by rule (no further action needed)
+- Messages held in the REVIEW queue for a human
 - Breakdown by disposition
 """
 
 from classifier import classify_email
 import json
+import os
 
 
 DISPOSITION_MANIFEST = {
@@ -68,7 +69,7 @@ DISPOSITION_MANIFEST = {
     "REVIEW": {
         "label": "Review",
         "color": "orange",
-        "description": "Ambiguous or unclear. Requires human/LLM judgment.",
+        "description": "Ambiguous or unclear. Hold for human review; no automatic action is taken.",
         "requires_llm": True,
     },
 }
@@ -282,7 +283,7 @@ def print_statistics(results, stats):
     
     print(f"\nTotal emails processed: {stats['total_emails']}")
     print(f"Assigned by rules:      {stats['rule_based']:3} ({100*stats['rule_based']/stats['total_emails']:.1f}%)")
-    print(f"Requiring LLM:          {stats['llm_required']:3} ({100*stats['llm_required']/stats['total_emails']:.1f}%)")
+    print(f"Review queue:           {stats['llm_required']:3} ({100*stats['llm_required']/stats['total_emails']:.1f}%)")
     
     print("\n" + "-" * 70)
     print("DISPOSITION BREAKDOWN:")
@@ -313,7 +314,7 @@ def print_statistics(results, stats):
     # Find messages requiring LLM
     llm_required = [r for r in results if not r["rule_based"]]
     if llm_required:
-        print(f"\n{len(llm_required)} messages requiring LLM review:")
+        print(f"\n{len(llm_required)} messages in the REVIEW queue:")
         for r in llm_required[:10]:  # Show first 10
             print(f"  • {r['id']:5s} | {r['subject'][:50]}")
         if len(llm_required) > 10:
@@ -339,12 +340,15 @@ def print_statistics(results, stats):
     print(f"✓ {stats['total_emails']} messages processed.")
     if stats["llm_required"] > 0:
         print(f"  • {stats['rule_based']} assigned by deterministic rules")
-        print(f"  • {stats['llm_required']} marked REVIEW and queued for LLM judgment")
+        print(f"  • {stats['llm_required']} marked REVIEW for human review")
     print("=" * 70 + "\n")
 
 
 def save_dispositions_to_file(results, filename="model/dispositions.json"):
     """Save disposition assignments to JSON file for reference."""
+    parent = os.path.dirname(filename)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(filename, "w") as f:
         json.dump(results, f, indent=2)
     print(f"Disposition assignments saved to {filename}")

@@ -198,6 +198,8 @@ def render_html(data):
 
 
 if __name__ == "__main__":
+    import os
+    os.makedirs("model", exist_ok=True)
     html = render_html(build_dashboard())
     with open("model/dashboard.html", "w") as f:
         f.write(html)

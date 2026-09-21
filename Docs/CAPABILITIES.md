@@ -13,7 +13,7 @@ python demo.py --all --dry-run       # every capability, in manifest order
 ```
 
 `demo.py` writes the same JSON artifacts a full run does (`model/dispositions.json`,
-`draft.json`, `model/commitments.json`, ...) and appends a tagged event per
+`model/draft.json`, `model/commitments.json`, ...) and appends a tagged event per
 capability to `trace.jsonl`, so a marker can check one capability's evidence
 in isolation. `main.py` is the full, undivided pipeline (`python main.py
 --dry-run` / `python main.py`) that Parts 2-8 actually ship as; `demo.py`
@@ -31,7 +31,7 @@ by also looking like a newsletter. `REPLY`-disposition messages go through
 `ReplyAgent` (thread-walk/keyword retrieval, cited draft), then every send is
 gated. A final pass extracts commitments, renders the dashboard, and runs
 four extra capabilities (Part 8). State that must outlive a run (preferences,
-sender trust) lives in `memory_store.json`; everything else is a plain JSON
+sender trust) lives in `model/memory_store.json`; everything else is a plain JSON
 file per part under `model/`.
 
 ## Design choices you were asked to state

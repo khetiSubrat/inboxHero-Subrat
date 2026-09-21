@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from disposition import assign_dispositions, print_statistics, save_dispositions_to_file
 from reply_agent import ReplyAgent
@@ -19,6 +20,7 @@ from digest import build_digest, print_digest
 from followups import find_open_followups
 from noise_advisor import find_unsubscribe_candidates
 from sender_trust import update_sender_trust
+from trace import trace_event
 
 
 def run_extra_capabilities(emails, results, commitments):
@@ -184,11 +186,14 @@ def send_replies(emails, drafts, dry_run):
 
 
 def main(dry_run=False):
+    os.makedirs("model", exist_ok=True)
+
     # Load inbox
     print("Loading emails from Docs/inbox.json...")
     with open('Docs/inbox.json', 'r') as f:
         emails = json.load(f)
     print(f"✓ Loaded {len(emails)} emails\n")
+    trace_event("FULL", "start", {"messages_processed": len(emails)})
 
     # Part 5: Learn/recall standing instructions before anything is drafted
     apply_standing_instructions(emails)
@@ -223,6 +228,12 @@ def main(dry_run=False):
     save_dispositions_to_file(results)
     with open("model/hostile_report.json", "w") as f:
         json.dump(flagged, f, indent=2)
+    trace_event("FULL", "dispositions", {
+        "total": len(results),
+        "rule_based": stats["rule_based"],
+        "review_queue": stats["llm_required"],
+        "hostile_blocked": len(flagged),
+    })
 
     # Part 7 support: extract commitments, citing message ids the same way Part 3 verifies drafts
     commitments = extract_commitments(emails)
@@ -235,18 +246,30 @@ def main(dry_run=False):
     with open("model/commitments.json", "w") as f:
         json.dump({"commitments": commitments, "conflicts": conflicts}, f, indent=2)
     print(f"✓ Extracted {len(commitments)} commitment(s), {len(conflicts)} conflict(s) -> model/commitments.json\n")
+    trace_event("FULL", "commitments", {"count": len(commitments), "conflicts": len(conflicts)})
 
     # Part 3: Draft grounded replies for REPLY-disposition messages
     drafts = draft_replies(emails, results, limit=None)
     with open("model/draft.json", "w") as f:
         json.dump(drafts, f, indent=2)
     print("✓ Saved drafts to model/draft.json")
+    trace_event("FULL", "drafts", {
+        "count": len(drafts),
+        "grounded": sum(1 for d in drafts if d["grounded"]),
+        "ungrounded": sum(1 for d in drafts if not d["grounded"]),
+    })
 
     # Part 4: Gate every send behind approval or --dry-run
     send_results = send_replies(emails, drafts, dry_run=dry_run)
     with open("model/send_results.json", "w") as f:
         json.dump(send_results, f, indent=2)
     print("✓ Saved send decisions to model/send_results.json (full log: logs/gate_log.jsonl)")
+    trace_event("FULL", "gated_sends", {
+        "count": len(send_results),
+        "approved": sum(1 for r in send_results if r["decision"] == "approved"),
+        "rejected": sum(1 for r in send_results if r["decision"] == "rejected"),
+        "dry_run": sum(1 for r in send_results if r["decision"] == "dry_run"),
+    })
 
     # Final run summary: never let a hostile-inbox finding pass silently
     print("\n" + "=" * 70)
@@ -264,9 +287,15 @@ def main(dry_run=False):
     with open("model/dashboard.html", "w") as f:
         f.write(render_html(dashboard))
     print("✓ Saved dashboard to model/dashboard.html")
+    trace_event("FULL", "dashboard", {
+        "commitments": len(commitments),
+        "conflicts": len(conflicts),
+        "flagged": len(flagged),
+    })
 
     # Part 8: Capabilities beyond the required parts
     run_extra_capabilities(emails, results, commitments)
+    trace_event("FULL", "complete", {"messages_processed": len(emails), "hostile_refused": len(flagged)})
 
 
 if __name__ == '__main__':

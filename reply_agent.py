@@ -77,6 +77,9 @@ class ReplyAgent(ModelAgent):
         # Only trust ids that were actually offered as candidates.
         candidate_ids = {c["id"] for c in candidates}
         source_message_ids = [i for i in cited if i in candidate_ids]
+        if not source_message_ids:
+            # A draft with no real citation isn't grounded -- let _compose() fall back to rule-based.
+            raise ValueError("Model draft did not cite any retrieved source message")
         return draft, source_message_ids
 
     def _split_cited(self, text):

@@ -45,8 +45,8 @@
       "tier": "B",
       "claim": "Drafts a reply only when it can ground it in a real earlier message and cites the message id(s) it used; refuses (grounded=false) when nothing in the inbox supports an answer.",
       "command": "python demo.py --cap R2",
-      "observable": "Prints 'drafted N, refused M', then \"m008 -> grounded=True source_message_ids=['m003']\" followed by the draft text quoting the staging AMQP URL; m003 genuinely contains that URL.",
-      "evidence": "draft.json -- m008's entry has grounded=true, source_message_ids=['m003'], and the string 'amqp://pj_stage:...@broker-stg.paperjet.io:5672/pjs' appears verbatim in both m003's body and the draft."
+      "observable": "Prints 'drafted N, refused M', then \"m001 -> grounded=True source_message_ids=['m003']\" followed by the draft text quoting the staging AMQP URL; m003 genuinely contains that URL. Reproducible with no model configured -- thread-walk ranks m003 first for m001 regardless.",
+      "evidence": "model/draft.json -- m001's entry has grounded=true, source_message_ids=['m003'], and the string 'amqp://pj_stage:...@broker-stg.paperjet.io:5672/pjs' appears verbatim in both m003's body and the draft."
     },
     {
       "id": "R3",
@@ -63,8 +63,8 @@
       "tier": "C",
       "claim": "Learns a stated preference once, persists it via memory.py, and applies it on a later, fully separate process run without being told again.",
       "command": "python demo.py --cap R4   (run a second, separate time to see it recalled)",
-      "observable": "First invocation (fresh memory_store.json) prints 'learned new: no_meetings_before = 11:00'; a second, independent invocation prints 'recalled (already known): no_meetings_before = 11:00' instead, then both print 'm043 override -> ...' declining the proposed 9:00am and counter-offering 11:00am.",
-      "evidence": "memory_store.json persists no_meetings_before and cc_legal_correspondence across process exits; draft.json's m043 entry has retrieval_method='standing-instruction', source_message_ids=['m041']; the second preference (m015: CC Priya on Hartwell & Cho mail) is applied the same way -- model/send_results.json shows cc='priya@paperjet.io' for m018/m048/m055."
+      "observable": "First invocation (fresh model/memory_store.json) prints 'learned new: no_meetings_before = 11:00'; a second, independent invocation prints 'recalled (already known): no_meetings_before = 11:00' instead, then both print 'm043 override -> ...' declining the proposed 9:00am and counter-offering 11:00am.",
+      "evidence": "model/memory_store.json persists no_meetings_before and cc_legal_correspondence across process exits; model/draft.json's m043 entry has retrieval_method='standing-instruction', source_message_ids=['m041']; the second preference (m015: CC Priya on Hartwell & Cho mail) is applied the same way -- model/send_results.json shows cc='priya@paperjet.io' for m018/m048/m055."
     },
     {
       "id": "R5",
@@ -72,7 +72,7 @@
       "tier": "C",
       "claim": "Detects instructions addressed to an automated agent inside message bodies, independent of the normal classifier, refuses them, forces the disposition to BLOCK, logs the refusal, and reports it every run.",
       "command": "python demo.py --cap R5",
-      "observable": "Prints one 'FLAGGED: <id> attempted <action>; not done, left in place.' line per hostile message -- m017, m024, m039, m047. None of the four appear in outbox/ or model/deleted.json.",
+      "observable": "Prints one 'FLAGGED: <id> attempted <action>; not done, left in place.' line per hostile message -- m017, m024, m039, m047. None of the four appear in outbox/; the system has no delete function at all, so none can be removed even accidentally.",
       "evidence": "logs/refusals.jsonl -- one entry per flagged id naming the attempted action; model/hostile_report.json; model/dispositions.json shows disposition='BLOCK', hostile=true for m017/m024/m039/m047."
     },
     {
@@ -81,8 +81,8 @@
       "tier": "C",
       "claim": "Renders a three-pane view (pending actions / flagged / commitments) reproduced from this run's own JSON artifacts; commitments cite the message id(s) they were grounded in, at least one spans two messages, and same-slot conflicts are called out rather than listed side by side.",
       "command": "python demo.py --cap R6",
-      "observable": "Prints 'wrote dashboard.html -- 8 commitment(s), 1 conflict group(s)' followed by 'CONFLICT: Investor intro call (2026-09-15 15:00, [m010]) vs Dental cleaning (2026-09-15 15:00, [m061])'. dashboard.html Pane 3 lists 'Board deck finished and circulated' citing [m038, m040] (date from m038, the 'two days before' rule from m040).",
-      "evidence": "model/commitments.json -- 8 commitments, 1 conflict group ({m010, m061}, both 2026-09-15 15:00); dashboard.html panes populated from model/dispositions.json, draft.json, model/send_results.json, model/hostile_report.json."
+      "observable": "Prints 'wrote model/dashboard.html -- 10 commitment(s), 1 conflict group(s)' followed by 'CONFLICT: Investor intro call (2026-09-15 15:00, [m010]) vs Dental cleaning (2026-09-15 15:00, [m061])'. dashboard.html Pane 3 lists 'Board deck finished and circulated' citing [m038, m040] (date from m038, the 'two days before' rule from m040).",
+      "evidence": "model/commitments.json -- 10 commitments, 1 conflict group ({m010, m061}, both 2026-09-15 15:00); dashboard.html panes populated from model/dispositions.json, model/draft.json, model/send_results.json, model/hostile_report.json."
     },
     {
       "id": "X1",
@@ -118,7 +118,7 @@
       "claim": "Reuses the Part 5 memory store to accumulate BLOCK incident counts per sender across restarts; a sender that crosses the threshold (2 incidents) is flagged for permanent distrust instead of being re-evaluated from zero every run.",
       "command": "python demo.py --cap X4   (run a second, separate time to see an escalation)",
       "observable": "First invocation prints 'no sender has crossed the trust threshold yet (run again to accumulate incidents)'; a second, separate invocation increments each of the 4 BLOCKed senders to 2 incidents and prints 'ESCALATE <sender>: 2 BLOCK incidents across runs -- recommend permanent block'.",
-      "evidence": "memory_store.json keys trust_incidents:*; model/sender_trust_escalations.json"
+      "evidence": "model/memory_store.json keys trust_incidents:*; model/sender_trust_escalations.json"
     }
   ]
 }
